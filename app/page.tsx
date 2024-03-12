@@ -3,6 +3,7 @@
 import {
   DynamicContextProvider,
   DynamicWidget,
+  useDynamicContext,
 } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { EthersExtension } from "@dynamic-labs/ethers-v6";
@@ -94,7 +95,7 @@ export default function Home() {
   return (
     <DynamicContextProvider
       settings={{
-        environmentId: "8147e03d-fea6-4336-afb6-3eb7df92c7df",
+        environmentId: "f0824038-9800-4848-9809-657211b26b75",
         walletConnectorExtensions: [EthersExtension],
         walletConnectors: [EthereumWalletConnectors],
       }}
@@ -154,6 +155,7 @@ function ContractWriteSection() {
 
 function Testing() {
   const { writeContract, data, isPending } = useWriteContract();
+  
 
   const { isSuccess } = useTransaction({
     hash: data,
