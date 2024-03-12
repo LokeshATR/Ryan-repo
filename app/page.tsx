@@ -11,73 +11,17 @@ import {
   WagmiProvider,
   createConfig,
   http,
+  useSendTransaction,
   useTransaction,
   useWriteContract,
 } from "wagmi";
 import { mainnet, polygon, polygonMumbai } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
-import { BrowserProvider, JsonRpcSigner, ethers } from "ethers";
 import { useEffect, useMemo, useState } from "react";
-import type { Account, Chain, Client, Transport } from "viem";
+import type { Account, Chain, Client, Transport, WalletClient } from "viem";
 import { type Config, useConnectorClient } from "wagmi";
-import { Contract } from "ethers";
 
-function clientToSigner(client: Client<Transport, Chain, Account>) {
-  const { account, chain, transport } = client;
-  const network = {
-    chainId: chain.id,
-    name: chain.name,
-    ensAddress: chain.contracts?.ensRegistry?.address,
-  };
-  const provider = new BrowserProvider(transport, network);
-  const abi=[
-    {
-        "inputs": [],
-        "name": "get",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "x",
-                "type": "uint256"
-            }
-        ],
-        "name": "set",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-  ]
-  
-  const signer = new JsonRpcSigner(provider, account.address);
-  const instance = new Contract("0xfcDbCC445768cB910A4E3b79cB70b763613ADd43", abi, signer)
-  console.log("ss",instance?.interface?.encodeFunctionData("set",["0x02"]));
-  const interfacee = new ethers.Interface(abi)
-  const resultData:any = "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000";
-
-  // const data = instance.interface?.encodeFunctionData("set",resultData)
-
-  //console.log("ins",instance?.interface?.decodeFunctionData("get",""));
-  
-  return signer;
-}
-
-/** Hook to convert a viem Wallet Client to an ethers.js Signer. */
-function useEthersSigner({ chainId }: { chainId?: number } = {}) {
-  const { data: client } = useConnectorClient<Config>({ chainId });
-  return useMemo(() => (client ? clientToSigner(client) : undefined), [client]);
-}
 
 const config = createConfig({
   chains: [mainnet, polygon, polygonMumbai],
@@ -96,19 +40,19 @@ export default function Home() {
     <DynamicContextProvider
       settings={{
         environmentId: "f0824038-9800-4848-9809-657211b26b75",
-        walletConnectorExtensions: [EthersExtension],
         walletConnectors: [EthereumWalletConnectors],
       }}
     >
-      <WagmiProvider config={config}>
+        <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}></QueryClientProvider>
         <QueryClientProvider client={queryClient}>
-          <DynamicWagmiConnector>
+        <DynamicWagmiConnector>
             <DynamicWidget />
             <ContractWriteSection />
-            <EthersSignerSection />
+            <WagmiSignerSection />
             <Testing/>
-          </DynamicWagmiConnector>
-        </QueryClientProvider>
+      </DynamicWagmiConnector>
+      </QueryClientProvider>
       </WagmiProvider>
     </DynamicContextProvider>
   );
@@ -155,7 +99,8 @@ function ContractWriteSection() {
 
 function Testing() {
   const { writeContract, data, isPending } = useWriteContract();
-  
+
+
 
   const { isSuccess } = useTransaction({
     hash: data,
@@ -187,24 +132,30 @@ function Testing() {
   );
 }
 
-function EthersSignerSection() {
-  const signer = useEthersSigner();
-  const [hash, setHash] = useState<string | null>(null);
-
+function WagmiSignerSection() {
+  const {primaryWallet} = useDynamicContext();
+  const { data: hashResponse, sendTransaction } = useSendTransaction()
+  const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
 
   const handleClick = async () => {
-    if (!signer) return;
-    const tx = await signer.sendTransaction({
+    console.log('click', primaryWallet)
+    if (!primaryWallet) return;
+    const deepLink = primaryWallet.connector.getDeepLink();
+
+    if (deepLink) {
+      window.location.href = deepLink;
+    }
+    const tx = sendTransaction({
       to: "0xfcDbCC445768cB910A4E3b79cB70b763613ADd43",
       data: "0x60fe47b10000000000000000000000000000000000000000000000000000000000000002",
     });
-    setHash(tx.hash);
+    setHash(hashResponse);
   };
 
   return (
     <div>
-      <button disabled={!signer} onClick={handleClick}>
-        {"Mint Using Ethers Signer"}
+      <button disabled={!primaryWallet} onClick={handleClick}>
+        {"Mint Using Wagmi"}
       </button>
       {hash && (
         <div>
